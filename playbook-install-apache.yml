@@ -1,0 +1,109 @@
+# Play
+- hosts: role_hosting
+
+  vars: 
+    required_packages:
+      - apache2
+      - php7.4
+
+  tasks:
+
+    - name : Install packages
+      apt:
+        name:
+          - apache2
+          - php7.3
+    
+    - name : Create dokuwiki directory
+      file :
+        path: /usr/src/dokuwiki
+        state: directory
+        mode: '0755'
+
+    - name : download dokuwiki
+      get_url:
+        url: https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz
+        dest: /usr/src/dokuwiki
+    
+    - name : dezip
+      unarchive:
+        src: /usr/src/dokuwiki/dokuwiki-stable.tgz
+        dest: /usr/src/dokuwiki
+        remote_src: yes
+
+    - name : get dezipped name
+      shell:
+        cmd: ls /usr/src/dokuwiki
+      register: list
+
+    - name : debug
+      debug: 
+        var: list
+
+    - name : mv dokuwiki
+      shell:
+        cmd : "mv /usr/src/dokuwiki/{{list.stdout_lines[0]}} /usr/src/dokuwiki/dokuwiki"
+        creates: /usr/src/dokuwiki/dokuwiki
+    
+    - name : "create folder recettes.wiki"
+      file :
+        path: '/var/www/recettes.wiki'
+        state: 'directory'
+        mode: '0755'
+
+    - name : "create folder politique.wiki"
+      file :
+        path: '/var/www/recettes.wiki'
+        state: 'directory'
+        mode: '0755'
+
+    - name : 'Copy dokuwiki in 2 directories'
+      shell:
+        cmd: "cp -r /usr/src/dokuwiki/dokuwiki /var/www/{{item}}"
+      with_items: 
+        - recettes.wiki
+        - politique.wiki
+
+    - name : 'Give access'
+      file:
+        path: "/var/www/{{item}}"
+        owner: www-data
+        group: www-data
+      with_items: 
+        - recettes.wiki
+        - politique.wiki
+
+    - name : 'move politique wiki conf'
+      copy:
+        src: './politique-wiki.conf'
+        dest: '/etc/apache2/sites-available/politique-wiki.conf'
+
+    - name : 'move recettes wiki conf'
+      copy:
+        src: './recettes-wiki.conf'
+        dest: '/etc/apache2/sites-available/recettes-wiki.conf'
+    
+    - name : 'Activate a2ensite'
+      shell:
+        cmd: "a2ensite {{item}}"
+      with_items:
+        - recettes-wiki
+        - politique-wiki
+    
+    - name : 'systemCtl'
+      shell:
+        cmd: "systemctl reload apache2"
+    
+    - name : 'check if DNS exists'
+      shell:
+        cmd: grep -c "^127.0.0.1" /etc/hosts || true
+      register: test_host
+
+    - name : 'write new hosts'
+      lineinfile:
+        dest: /etc/hosts
+        line: "127.0.0.1 {{item}}"
+      with_items:
+        - recettes.wiki
+        - politique.wiki
+      when: test_host == 0

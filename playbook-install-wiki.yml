@@ -1,0 +1,31 @@
+---
+## Play
+- hosts: role_hosting
+  tasks:
+
+    # PACKAGES
+
+    - name: Install packages
+      apt:
+        name:
+          - apache2
+          - php7.3
+        state: present
+
+    # INSTALL
+
+    - name: Download dokuwiki
+      get_url:
+        url: https://download.dokuwiki.org/src/dokuwiki/dokuwiki-stable.tgz
+        dest: "/usr/src"
+
+    - name: Unzip dokuwiki archive
+      unarchive:
+        remote_src: yes
+        src: "/usr/src/dokuwiki-stable.tgz"
+        dest: "/usr/src"
+
+    - name: Remove archive
+      file:
+        path: "/usr/src/dokuwiki-stable.tgz"
+        state: absent
